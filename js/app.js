@@ -38,8 +38,8 @@ function showForm() {
 
   if (switchWrapper) switchWrapper.hidden = true;
   if (forgotWrapper) forgotWrapper.hidden = true;
-
   if (nameField) nameField.hidden = false;
+
   if (fullNameInput) fullNameInput.required = true;
 
   if (passwordInput) {
@@ -50,14 +50,16 @@ function showForm() {
 
   if (togglePassword) togglePassword.hidden = true;
 
-  if (formTitle) formTitle.textContent = "Registro de prueba";
+  if (formTitle) {
+    formTitle.textContent = "Registro de prueba";
+  }
 
   if (formDescription) {
     formDescription.textContent =
       "Ingresa tu nombre y correo electrónico.";
   }
 
-  if (submitButton) submitButton.textContent = "Guardar registro";
+  submitButton.textContent = "Guardar registro";
 }
 
 function showSavedRecord(nombre, correo) {
@@ -95,7 +97,10 @@ authForm.addEventListener("submit", async (event) => {
   }
 
   if (nombre.length > 150 || correo.length > 254) {
-    showMessage("El nombre o el correo son demasiado largos.", "error");
+    showMessage(
+      "El nombre o el correo son demasiado largos.",
+      "error"
+    );
     return;
   }
 
@@ -103,38 +108,31 @@ authForm.addEventListener("submit", async (event) => {
   showMessage("Guardando el registro...", "info");
 
   try {
-    const { data, error } = await supabaseClient
+    const { error } = await supabaseClient
       .from("usuarios_prueba")
       .insert([
         {
           nombre: nombre,
           correo: correo
         }
-      ])
-      .select("id, nombre, correo")
-      .single();
+      ]);
 
     if (error) {
       console.error("Error de Supabase:", error);
-
-      if (error.code === "42501") {
-        throw new Error(
-          "No hay permisos para guardar. Revisa la política RLS de la tabla."
-        );
-      }
-
       throw new Error(
         error.message || "No se pudo guardar el registro."
       );
     }
 
-    showSavedRecord(data.nombre, data.correo);
+    showSavedRecord(nombre, correo);
+    authForm.reset();
 
   } catch (error) {
     console.error("Error al guardar:", error);
 
     showMessage(
-      error.message || "No se pudo guardar el registro. Inténtalo de nuevo.",
+      error.message ||
+        "No se pudo guardar el registro. Inténtalo de nuevo.",
       "error"
     );
   } finally {
@@ -145,18 +143,11 @@ authForm.addEventListener("submit", async (event) => {
 if (logoutButton) {
   logoutButton.addEventListener("click", () => {
     authForm.reset();
-
-    if (passwordInput) {
-      passwordInput.value = "";
-    }
-
     showForm();
 
-    if (message) {
-      message.hidden = false;
-      message.textContent = "";
-      message.className = "message";
-    }
+    message.hidden = false;
+    message.textContent = "";
+    message.className = "message";
 
     fullNameInput.focus();
   });
