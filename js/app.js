@@ -270,7 +270,6 @@ logoutButton.addEventListener("click", async () => {
   }
 })();
 
-// Actualizar la interfaz cuando cambia la sesión.
 supabaseClient.auth.onAuthStateChange((event, session) => {
   renderSession(session);
 });
