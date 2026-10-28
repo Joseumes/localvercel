@@ -9,221 +9,132 @@ const passwordInput = document.getElementById("password");
 const submitButton = document.getElementById("submit-button");
 const togglePassword = document.getElementById("toggle-password");
 const forgotWrapper = document.getElementById("forgot-wrapper");
-const forgotPassword = document.getElementById("forgot-password");
 const switchWrapper = document.getElementById("switch-wrapper");
-const switchModeButton = document.getElementById("switch-mode");
 const message = document.getElementById("message");
 const dashboard = document.getElementById("dashboard");
 const userEmail = document.getElementById("user-email");
 const userName = document.getElementById("user-name");
 const logoutButton = document.getElementById("logout-button");
 
-let isRegisterMode = false;
 let isBusy = false;
 
 function showMessage(text, type = "info") {
   message.textContent = text;
   message.className = `message ${type}`;
-}
-
-function clearMessage() {
-  message.textContent = "";
-  message.className = "message";
+  message.hidden = false;
 }
 
 function setBusy(busy) {
   isBusy = busy;
   submitButton.disabled = busy;
-  logoutButton.disabled = busy;
   submitButton.textContent = busy
-    ? "Procesando..."
-    : isRegisterMode
-      ? "Crear cuenta"
-      : "Iniciar sesión";
+    ? "Guardando..."
+    : "Guardar registro";
 }
 
-function setMode(registerMode) {
-  isRegisterMode = registerMode;
+function showForm() {
+  authForm.hidden = false;
+  dashboard.hidden = true;
 
-  formTitle.textContent = registerMode ? "Crear cuenta" : "Bienvenido";
-  formDescription.textContent = registerMode
-    ? "Completa tus datos para registrarte."
-    : "Ingresa tus datos para continuar.";
+  if (switchWrapper) switchWrapper.hidden = true;
+  if (forgotWrapper) forgotWrapper.hidden = true;
 
-  nameField.hidden = !registerMode;
-  fullNameInput.required = registerMode;
-  passwordInput.autocomplete = registerMode
-    ? "new-password"
-    : "current-password";
+  if (nameField) nameField.hidden = false;
+  if (fullNameInput) fullNameInput.required = true;
 
-  forgotWrapper.hidden = registerMode;
-
-  switchWrapper.firstChild.textContent = registerMode
-    ? "¿Ya tienes una cuenta? "
-    : "¿No tienes una cuenta? ";
-
-  switchModeButton.textContent = registerMode
-    ? "Inicia sesión"
-    : "Regístrate";
-
-  clearMessage();
-  setBusy(false);
-}
-
-function renderSession(session) {
-  const user = session?.user;
-
-  authForm.hidden = Boolean(user);
-  dashboard.hidden = !user;
-  switchWrapper.hidden = Boolean(user);
-  message.hidden = Boolean(user);
-
-  if (user) {
-    userEmail.textContent = user.email || "";
-    userName.textContent =
-      user.user_metadata?.full_name || "Usuario registrado";
-
-    clearMessage();
-  } else {
-    message.hidden = false;
+  if (passwordInput) {
+    passwordInput.required = false;
+    passwordInput.disabled = true;
+    passwordInput.value = "";
   }
 
-  setBusy(false);
+  if (togglePassword) togglePassword.hidden = true;
+
+  if (formTitle) formTitle.textContent = "Registro de prueba";
+
+  if (formDescription) {
+    formDescription.textContent =
+      "Ingresa tu nombre y correo electrónico.";
+  }
+
+  if (submitButton) submitButton.textContent = "Guardar registro";
 }
 
-togglePassword.addEventListener("click", () => {
-  const showing = passwordInput.type === "text";
+function showSavedRecord(nombre, correo) {
+  authForm.hidden = true;
+  dashboard.hidden = false;
+  message.hidden = true;
 
-  passwordInput.type = showing ? "password" : "text";
-  togglePassword.textContent = showing ? "Mostrar" : "Ocultar";
-  togglePassword.setAttribute(
-    "aria-label",
-    showing ? "Mostrar contraseña" : "Ocultar contraseña"
-  );
-});
+  if (userName) userName.textContent = nombre;
+  if (userEmail) userEmail.textContent = correo;
 
-switchModeButton.addEventListener("click", () => {
-  if (isBusy) return;
-  setMode(!isRegisterMode);
-});
+  if (logoutButton) {
+    logoutButton.textContent = "Registrar otra persona";
+    logoutButton.disabled = false;
+  }
+}
 
 authForm.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   if (isBusy) return;
 
-  clearMessage();
+  const nombre = fullNameInput.value.trim();
+  const correo = emailInput.value.trim().toLowerCase();
 
-  const email = emailInput.value.trim();
-  const password = passwordInput.value;
-  const fullName = fullNameInput.value.trim();
-
-  if (!email || !password) {
-    showMessage("Completa el correo y la contraseña.", "error");
+  if (!nombre) {
+    showMessage("Escribe tu nombre.", "error");
+    fullNameInput.focus();
     return;
   }
 
-  if (password.length < 8) {
-    showMessage(
-      "La contraseña debe tener al menos 8 caracteres.",
-      "error"
-    );
-    return;
-  }
-
-  if (isRegisterMode && !fullName) {
-    showMessage("Escribe tu nombre completo.", "error");
-    return;
-  }
-
-  setBusy(true);
-
-  try {
-    if (isRegisterMode) {
-      const { data, error } = await supabaseClient.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: fullName
-          },
-          emailRedirectTo: window.location.origin
-        }
-      });
-
-      if (error) throw error;
-
-      if (data.session) {
-        renderSession(data.session);
-        showMessage("Cuenta creada correctamente.", "success");
-      } else {
-        showMessage(
-          "Registro recibido. Revisa tu correo para confirmar la cuenta antes de iniciar sesión.",
-          "success"
-        );
-
-        authForm.reset();
-        passwordInput.type = "password";
-        togglePassword.textContent = "Mostrar";
-      }
-    } else {
-      const { data, error } =
-        await supabaseClient.auth.signInWithPassword({
-          email,
-          password
-        });
-
-      if (error) throw error;
-
-      renderSession(data.session);
-      showMessage("Inicio de sesión correcto.", "success");
-    }
-  } catch (error) {
-    console.error("Error de autenticación:", error);
-
-    showMessage(
-      isRegisterMode
-        ? "No se pudo crear la cuenta. Verifica los datos e inténtalo de nuevo."
-        : "No se pudo iniciar sesión. Verifica el correo y la contraseña.",
-      "error"
-    );
-  } finally {
-    setBusy(false);
-  }
-});
-
-forgotPassword.addEventListener("click", async () => {
-  if (isBusy) return;
-
-  const email = emailInput.value.trim();
-
-  if (!email) {
-    showMessage(
-      "Escribe tu correo para solicitar la recuperación.",
-      "info"
-    );
+  if (!correo || !emailInput.validity.valid) {
+    showMessage("Escribe un correo electrónico válido.", "error");
     emailInput.focus();
     return;
   }
 
+  if (nombre.length > 150 || correo.length > 254) {
+    showMessage("El nombre o el correo son demasiado largos.", "error");
+    return;
+  }
+
   setBusy(true);
+  showMessage("Guardando el registro...", "info");
 
   try {
-    const { error } =
-      await supabaseClient.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin
-      });
+    const { data, error } = await supabaseClient
+      .from("usuarios_prueba")
+      .insert([
+        {
+          nombre: nombre,
+          correo: correo
+        }
+      ])
+      .select("id, nombre, correo")
+      .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error("Error de Supabase:", error);
 
-    showMessage(
-      "Si el correo corresponde a una cuenta, recibirás instrucciones para recuperar el acceso.",
-      "success"
-    );
+      if (error.code === "42501") {
+        throw new Error(
+          "No hay permisos para guardar. Revisa la política RLS de la tabla."
+        );
+      }
+
+      throw new Error(
+        error.message || "No se pudo guardar el registro."
+      );
+    }
+
+    showSavedRecord(data.nombre, data.correo);
+
   } catch (error) {
-    console.error("Error de recuperación:", error);
+    console.error("Error al guardar:", error);
+
     showMessage(
-      "No se pudo solicitar la recuperación. Inténtalo más tarde.",
+      error.message || "No se pudo guardar el registro. Inténtalo de nuevo.",
       "error"
     );
   } finally {
@@ -231,45 +142,24 @@ forgotPassword.addEventListener("click", async () => {
   }
 });
 
-logoutButton.addEventListener("click", async () => {
-  if (isBusy) return;
-
-  setBusy(true);
-
-  try {
-    const { error } = await supabaseClient.auth.signOut();
-
-    if (error) throw error;
-
-    renderSession(null);
+if (logoutButton) {
+  logoutButton.addEventListener("click", () => {
     authForm.reset();
-    setMode(false);
-    showMessage("Sesión cerrada correctamente.", "success");
-  } catch (error) {
-    console.error("Error al cerrar sesión:", error);
-    showMessage("No se pudo cerrar la sesión.", "error");
-  } finally {
-    setBusy(false);
-  }
-});
 
-// Recuperar la sesión cuando se abre o recarga la página.
-(async function initializeAuth() {
-  try {
-    const { data, error } = await supabaseClient.auth.getSession();
+    if (passwordInput) {
+      passwordInput.value = "";
+    }
 
-    if (error) throw error;
+    showForm();
 
-    renderSession(data.session);
-  } catch (error) {
-    console.error("Error al comprobar la sesión:", error);
-    showMessage(
-      "No se pudo conectar con Supabase. Revisa la configuración.",
-      "error"
-    );
-  }
-})();
+    if (message) {
+      message.hidden = false;
+      message.textContent = "";
+      message.className = "message";
+    }
 
-supabaseClient.auth.onAuthStateChange((event, session) => {
-  renderSession(session);
-});
+    fullNameInput.focus();
+  });
+}
+
+showForm();
